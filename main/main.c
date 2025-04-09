@@ -6,47 +6,59 @@
 #include "esp_log_level.h"
 #include "esp_bt_main.h"
 #include "esp_gap_ble_api.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <driver/gpio.h>
+#include "driver/gpio.h"
+#define LED_PIN 2
 
 
 char *TAG = "ESP32";
 
-void init_nvs(void) {
+void init_nvs(void)
+{
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
 }
 
-void init_ble(void) {
+void init_ble(void)
+{
     esp_err_t ret;
 
     // Initialize the Bluetooth controller
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ret = esp_bt_controller_init(&bt_cfg);
-    if (ret) {
+    if (ret)
+    {
         ESP_LOGE(TAG, "Failed to initialize BT controller: %s", esp_err_to_name(ret));
         return;
     }
 
     // Enable the Bluetooth controller
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
-    if (ret) {
+    if (ret)
+    {
         ESP_LOGE(TAG, "Failed to enable BT controller: %s", esp_err_to_name(ret));
         return;
     }
 
     // Initialize Bluedroid
     ret = esp_bluedroid_init();
-    if (ret) {
+    if (ret)
+    {
         ESP_LOGE(TAG, "Failed to initialize Bluedroid: %s", esp_err_to_name(ret));
         return;
     }
 
     // Enable Bluedroid
     ret = esp_bluedroid_enable();
-    if (ret) {
+    if (ret)
+    {
         ESP_LOGE(TAG, "Failed to enable Bluedroid: %s", esp_err_to_name(ret));
         return;
     }
@@ -69,10 +81,13 @@ static void get_device_name(esp_ble_gap_cb_param_t *param, char *name, int name_
     // Extract the device name from the advertisement data
     adv_name = esp_ble_resolve_adv_data(param->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
 
-    if (adv_name != NULL && adv_name_len > 0) {
+    if (adv_name != NULL && adv_name_len > 0)
+    {
         // Copy the device name to the output buffer
         snprintf(name, name_len, "%.*s", adv_name_len, adv_name);
-    } else {
+    }
+    else
+    {
         // If no name is found, show "Unknown device"
         snprintf(name, name_len, "Unknown device");
     }
@@ -80,42 +95,47 @@ static void get_device_name(esp_ble_gap_cb_param_t *param, char *name, int name_
 
 void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
-    switch (event) {
-        case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
-            if (param->scan_param_cmpl.status == ESP_BT_STATUS_SUCCESS) {
-                ESP_LOGI(TAG, "Scan parameters set, starting scan...");
-                esp_ble_gap_start_scanning(86400);  // Scan for 10 seconds
-            } else {
-                ESP_LOGE(TAG, "Failed to set scan parameters");
+    switch (event)
+    {
+    case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
+        if (param->scan_param_cmpl.status == ESP_BT_STATUS_SUCCESS)
+        {
+            ESP_LOGI(TAG, "Scan parameters set, starting scan...");
+            esp_ble_gap_start_scanning(86400); // Scan for 10 seconds
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to set scan parameters");
+        }
+        break;
+
+    case ESP_GAP_BLE_SCAN_RESULT_EVT:
+        if (param->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_RES_EVT)
+        {
+            // Get the device name
+            char device_name[64];
+            get_device_name(param, device_name, sizeof(device_name));
+
+            // Log the device name and RSSI
+
+            ESP_LOGI(TAG, "Device found: Name: %s, RSSI %d", device_name, param->scan_rst.rssi);
+            printf("MAC Address: ");
+            for (uint8_t addr = 0; addr < ESP_BD_ADDR_LEN - 1; addr++)
+            {
+                // ESP_LOGI(TAG, "%x :", param->scan_rst.bda[0]);
+                printf("%x:", param->scan_rst.bda[addr]);
             }
-            break;
+            printf("%x", param->scan_rst.bda[ESP_BD_ADDR_LEN - 1]);
+            printf("\n\n");
+        }
+        break;
 
-        case ESP_GAP_BLE_SCAN_RESULT_EVT:
-            if (param->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_RES_EVT) {
-                // Get the device name
-                char device_name[64];
-                get_device_name(param, device_name, sizeof(device_name));
+    case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
+        ESP_LOGI(TAG, "Scan complete");
+        break;
 
-                // Log the device name and RSSI
-                
-                ESP_LOGI(TAG, "Device found: Name: %s, RSSI %d", device_name, param->scan_rst.rssi);
-                printf("MAC Address: ");
-                for (uint8_t addr = 0; addr < ESP_BD_ADDR_LEN - 1; addr ++)
-                {
-                   // ESP_LOGI(TAG, "%x :", param->scan_rst.bda[0]);
-                    printf("%x:", param->scan_rst.bda[addr]);
-                }
-                printf("%x", param->scan_rst.bda[ESP_BD_ADDR_LEN-1]);
-                printf("\n\n");
-            }
-            break;
-
-        case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
-            ESP_LOGI(TAG, "Scan complete");
-            break;
-
-        default:
-            break;
+    default:
+        break;
     }
 }
 
@@ -129,12 +149,24 @@ void app_main(void)
 
     // Register GAP callback
     esp_ble_gap_register_callback(gap_event_handler);
-
+    gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
     // Set scan parameters
     esp_err_t ret = esp_ble_gap_set_scan_params(&ble_scan_params);
-    if (ret == ESP_OK) {
+    if (ret == ESP_OK)
+    {
         ESP_LOGI(TAG, "BLE scan parameters set successfully");
-    } else {
+    }
+    else
+    {
         ESP_LOGE(TAG, "Failed to set scan params: %s", esp_err_to_name(ret));
+    }
+    esp_rom_gpio_pad_select_gpio(LED_PIN);
+    gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+    int ON = 0;
+    while (true)
+    {
+        ON = !ON;
+        gpio_set_level(LED_PIN, ON);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
