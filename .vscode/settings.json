@@ -8,7 +8,10 @@
     "idf.port": "/dev/ttyACM0",
     "idf.toolsPath": "/home/d-zaretski/.espressif",
     "files.associations": {
-        "esp_err.h": "c"
+        "esp_err.h": "c",
+        "bluetooth_user.h": "c",
+        "task.h": "c",
+        "gpio.h": "c"
     },
     "idf.flashType": "UART"
 }

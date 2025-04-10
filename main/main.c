@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "esp_err.h"
-#include "nvs_flash.h"
-#include "esp_bt.h"
+
+
 #include "esp_log.h"
 #include "esp_log_level.h"
 #include "esp_bt_main.h"
@@ -11,63 +11,17 @@
 #include <driver/gpio.h>
 #include "driver/gpio.h"
 #include "string.h"
+#include "inc/bluetooth_user.h"
 #define LED_PIN 2
-uint8_t mac_cmp[6] = {0xc4, 0xde, 0xe2, 0x5c, 0x74, 0x46};
+//uint8_t mac_cmp[6] = {0xc4, 0xde, 0xe2, 0x5c, 0x74, 0x46}; //another esp
+//uint8_t mac_cmp[6] = {0x38, 0x9c, 0xb2, 0xe5, 0x5a, 0xda}; //iphone
+uint8_t mac_cmp[6] = {0xf0, 0x20, 0xff, 0xcc, 0xbc, 0x7a}; //pc
 uint8_t mac_get[6] = {
     0,
 };
-char *TAG = "ESP32";
+char *TAG1 = "ESP32";
 uint8_t compare_mac = 0;
 bool ledon = 0;
-
-void init_nvs(void)
-{
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
-    {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-}
-
-void init_ble(void)
-{
-    esp_err_t ret;
-
-    // Initialize the Bluetooth controller
-    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    ret = esp_bt_controller_init(&bt_cfg);
-    if (ret)
-    {
-        ESP_LOGE(TAG, "Failed to initialize BT controller: %s", esp_err_to_name(ret));
-        return;
-    }
-
-    // Enable the Bluetooth controller
-    ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
-    if (ret)
-    {
-        ESP_LOGE(TAG, "Failed to enable BT controller: %s", esp_err_to_name(ret));
-        return;
-    }
-
-    // Initialize Bluedroid
-    ret = esp_bluedroid_init();
-    if (ret)
-    {
-        ESP_LOGE(TAG, "Failed to initialize Bluedroid: %s", esp_err_to_name(ret));
-        return;
-    }
-
-    // Enable Bluedroid
-    ret = esp_bluedroid_enable();
-    if (ret)
-    {
-        ESP_LOGE(TAG, "Failed to enable Bluedroid: %s", esp_err_to_name(ret));
-        return;
-    }
-}
 
 esp_ble_scan_params_t ble_scan_params = {
     .scan_type = BLE_SCAN_TYPE_ACTIVE,
@@ -105,12 +59,12 @@ void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
         if (param->scan_param_cmpl.status == ESP_BT_STATUS_SUCCESS)
         {
-            ESP_LOGI(TAG, "Scan parameters set, starting scan...");
+            ESP_LOGI(TAG1, "Scan parameters set, starting scan...");
             esp_ble_gap_start_scanning(86400); // Scan for 10 seconds
         }
         else
         {
-            ESP_LOGE(TAG, "Failed to set scan parameters");
+            ESP_LOGE(TAG1, "Failed to set scan parameters");
         }
         break;
 
@@ -125,9 +79,9 @@ void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             char *name_device_cmp = "Unknown device";
             bool cmp_names_devs;
             cmp_names_devs = strncmp(device_name, name_device_cmp, 14);
-            if (cmp_names_devs)
+           // if (cmp_names_devs)
             {
-                ESP_LOGI(TAG, "Device found: Name: %s, RSSI %d", device_name, param->scan_rst.rssi);
+                ESP_LOGI(TAG1, "Device found: Name: %s, RSSI %d", device_name, param->scan_rst.rssi);
                 printf("MAC Address: ");
                 for (uint8_t addr = 0; addr < ESP_BD_ADDR_LEN - 1; addr++)
                 {
@@ -167,7 +121,7 @@ void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
         break;
 
     case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
-        ESP_LOGI(TAG, "Scan complete");
+        ESP_LOGI(TAG1, "Scan complete");
         break;
 
     default:
@@ -191,11 +145,11 @@ void app_main(void)
     esp_err_t ret = esp_ble_gap_set_scan_params(&ble_scan_params);
     if (ret == ESP_OK)
     {
-        ESP_LOGI(TAG, "BLE scan parameters set successfully");
+        ESP_LOGI(TAG1, "BLE scan parameters set successfully");
     }
     else
     {
-        ESP_LOGE(TAG, "Failed to set scan params: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG1, "Failed to set scan params: %s", esp_err_to_name(ret));
     }
 
     int ON = 0;
@@ -206,10 +160,10 @@ void app_main(void)
         if (ledon)
         {
             gpio_set_level(LED_PIN, 1);
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
-            // gpio_set_level(LED_PIN, 0);
-           //  vTaskDelay(100 / portTICK_PERIOD_MS);
-           // ledon = 0;
+            vTaskDelay(10000 / portTICK_PERIOD_MS);
+             gpio_set_level(LED_PIN, 0);
+             vTaskDelay(100 / portTICK_PERIOD_MS);
+            ledon = 0;
         }
         else
         {
