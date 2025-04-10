@@ -11,9 +11,11 @@
 #include <driver/gpio.h>
 #include "driver/gpio.h"
 #define LED_PIN 2
-
-
+uint8_t mac_cmp[6] = {0xc4, 0xde, 0xe2, 0x5c, 0x74, 0x46};
+uint8_t mac_get[6] = {0,};
 char *TAG = "ESP32";
+uint8_t compare_mac = 0;
+bool ledon = 0;
 
 void init_nvs(void)
 {
@@ -124,9 +126,35 @@ void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             {
                 // ESP_LOGI(TAG, "%x :", param->scan_rst.bda[0]);
                 printf("%x:", param->scan_rst.bda[addr]);
+                mac_get[addr] = param->scan_rst.bda[addr];
             }
             printf("%x", param->scan_rst.bda[ESP_BD_ADDR_LEN - 1]);
+            mac_get[ESP_BD_ADDR_LEN - 1] = param->scan_rst.bda[ESP_BD_ADDR_LEN - 1];
             printf("\n\n");
+            printf ("GET MAC = "); 
+            for (uint8_t macnum = 0; macnum < 6; macnum++)
+            {
+                printf ("%x", mac_get[macnum]);
+            }
+            printf("\n\n");
+            compare_mac = 0;
+            for (uint8_t macnum = 0; macnum < 6; macnum++)
+            {
+                if (mac_get[macnum] == mac_cmp[macnum])
+                compare_mac ++;
+            }
+           // compare_mac = 0;
+            printf("compare MAC NUMBER = %d\n", compare_mac);
+            if (compare_mac == 6)
+            {
+                ledon = 1;
+            }
+         //   else 
+         //   {
+               // ledon = 0;
+         //   }
+        
+
         }
         break;
 
@@ -146,10 +174,11 @@ void app_main(void)
 
     // Initialize BLE
     init_ble();
-
+    gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+    esp_rom_gpio_pad_select_gpio(LED_PIN);
     // Register GAP callback
     esp_ble_gap_register_callback(gap_event_handler);
-    gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+    
     // Set scan parameters
     esp_err_t ret = esp_ble_gap_set_scan_params(&ble_scan_params);
     if (ret == ESP_OK)
@@ -160,13 +189,23 @@ void app_main(void)
     {
         ESP_LOGE(TAG, "Failed to set scan params: %s", esp_err_to_name(ret));
     }
-    esp_rom_gpio_pad_select_gpio(LED_PIN);
-    gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+    
+
     int ON = 0;
     while (true)
     {
-        ON = !ON;
-        gpio_set_level(LED_PIN, ON);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+       // ON = !ON;
+       printf("\nled = %d\n", ledon);
+        if (ledon)
+        {
+            gpio_set_level(LED_PIN, 1);
+          //  vTaskDelay(100 / portTICK_PERIOD_MS);
+        }
+        else
+        {
+            gpio_set_level(LED_PIN, 0);
+          //  vTaskDelay(100 / portTICK_PERIOD_MS);
+        }
+
     }
 }
