@@ -10,9 +10,12 @@
 #include "freertos/task.h"
 #include <driver/gpio.h>
 #include "driver/gpio.h"
+#include "string.h"
 #define LED_PIN 2
 uint8_t mac_cmp[6] = {0xc4, 0xde, 0xe2, 0x5c, 0x74, 0x46};
-uint8_t mac_get[6] = {0,};
+uint8_t mac_get[6] = {
+    0,
+};
 char *TAG = "ESP32";
 uint8_t compare_mac = 0;
 bool ledon = 0;
@@ -119,42 +122,47 @@ void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             get_device_name(param, device_name, sizeof(device_name));
 
             // Log the device name and RSSI
+            char *name_device_cmp = "Unknown device";
+            bool cmp_names_devs;
+            cmp_names_devs = strncmp(device_name, name_device_cmp, 14);
+            if (cmp_names_devs)
+            {
+                ESP_LOGI(TAG, "Device found: Name: %s, RSSI %d", device_name, param->scan_rst.rssi);
+                printf("MAC Address: ");
+                for (uint8_t addr = 0; addr < ESP_BD_ADDR_LEN - 1; addr++)
+                {
+                    // ESP_LOGI(TAG, "%x :", param->scan_rst.bda[0]);
+                    printf("%x:", param->scan_rst.bda[addr]);
+                    mac_get[addr] = param->scan_rst.bda[addr];
+                }
+                printf("%x", param->scan_rst.bda[ESP_BD_ADDR_LEN - 1]);
+                mac_get[ESP_BD_ADDR_LEN - 1] = param->scan_rst.bda[ESP_BD_ADDR_LEN - 1];
+                printf("\n\n");
+                printf("GET MAC = ");
 
-            ESP_LOGI(TAG, "Device found: Name: %s, RSSI %d", device_name, param->scan_rst.rssi);
-            printf("MAC Address: ");
-            for (uint8_t addr = 0; addr < ESP_BD_ADDR_LEN - 1; addr++)
-            {
-                // ESP_LOGI(TAG, "%x :", param->scan_rst.bda[0]);
-                printf("%x:", param->scan_rst.bda[addr]);
-                mac_get[addr] = param->scan_rst.bda[addr];
+                for (uint8_t macnum = 0; macnum < 6; macnum++)
+                {
+                    printf("%x", mac_get[macnum]);
+                }
+                printf("\n\n");
+                compare_mac = 0;
+                for (uint8_t macnum = 0; macnum < 6; macnum++)
+                {
+                    if (mac_get[macnum] == mac_cmp[macnum])
+                        compare_mac++;
+                }
+                // compare_mac = 0;
+                printf("compare MAC NUMBER = %d\n", compare_mac);
             }
-            printf("%x", param->scan_rst.bda[ESP_BD_ADDR_LEN - 1]);
-            mac_get[ESP_BD_ADDR_LEN - 1] = param->scan_rst.bda[ESP_BD_ADDR_LEN - 1];
-            printf("\n\n");
-            printf ("GET MAC = "); 
-            for (uint8_t macnum = 0; macnum < 6; macnum++)
-            {
-                printf ("%x", mac_get[macnum]);
-            }
-            printf("\n\n");
-            compare_mac = 0;
-            for (uint8_t macnum = 0; macnum < 6; macnum++)
-            {
-                if (mac_get[macnum] == mac_cmp[macnum])
-                compare_mac ++;
-            }
-           // compare_mac = 0;
-            printf("compare MAC NUMBER = %d\n", compare_mac);
-            if (compare_mac == 6)
+            if ((compare_mac == 6) && (param->scan_rst.rssi > -28))
             {
                 ledon = 1;
             }
-         //   else 
-         //   {
-               // ledon = 0;
-         //   }
-        
 
+            //   else
+            //   {
+            // ledon = 0;
+            //   }
         }
         break;
 
@@ -178,7 +186,7 @@ void app_main(void)
     esp_rom_gpio_pad_select_gpio(LED_PIN);
     // Register GAP callback
     esp_ble_gap_register_callback(gap_event_handler);
-    
+
     // Set scan parameters
     esp_err_t ret = esp_ble_gap_set_scan_params(&ble_scan_params);
     if (ret == ESP_OK)
@@ -189,23 +197,24 @@ void app_main(void)
     {
         ESP_LOGE(TAG, "Failed to set scan params: %s", esp_err_to_name(ret));
     }
-    
 
     int ON = 0;
     while (true)
     {
-       // ON = !ON;
-       printf("\nled = %d\n", ledon);
+        // ON = !ON;
+        //    printf("\nled = %d\n", ledon);
         if (ledon)
         {
             gpio_set_level(LED_PIN, 1);
-          //  vTaskDelay(100 / portTICK_PERIOD_MS);
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            // gpio_set_level(LED_PIN, 0);
+           //  vTaskDelay(100 / portTICK_PERIOD_MS);
+           // ledon = 0;
         }
         else
         {
             gpio_set_level(LED_PIN, 0);
-          //  vTaskDelay(100 / portTICK_PERIOD_MS);
+              vTaskDelay(100 / portTICK_PERIOD_MS);
         }
-
     }
 }
