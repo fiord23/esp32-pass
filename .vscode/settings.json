@@ -11,7 +11,8 @@
         "esp_err.h": "c",
         "bluetooth_user.h": "c",
         "task.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "esp_gap_bt_api.h": "c"
     },
     "idf.flashType": "UART"
 }
