@@ -12,7 +12,11 @@
         "bluetooth_user.h": "c",
         "task.h": "c",
         "gpio.h": "c",
-        "esp_gap_bt_api.h": "c"
+        "esp_gap_bt_api.h": "c",
+        "compare": "c",
+        "cstdint": "c",
+        "format": "c",
+        "user_funcs.h": "c"
     },
     "idf.flashType": "UART"
 }

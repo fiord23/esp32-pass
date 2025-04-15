@@ -9,8 +9,20 @@
 #include "esp_gap_ble_api.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "inc/bluetooth_user.h"
+#include "inc/user_funcs.h"
+#include "driver/gpio.h"
 
+#define LED_GPIO GPIO_NUM_2
+uint64_t mac64 = 0;
+uint64_t maccmp = 0xF020FFCCBC7A;
 static const char *TAG = "BT_BLE_SCANNER";
+
+void led_init() {
+    gpio_reset_pin(LED_GPIO);
+    gpio_set_direction(LED_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_level(LED_GPIO, 0); // выключено
+}
 
 // ======== Classic BT GAP Callback =========
 void bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param) {
@@ -53,16 +65,30 @@ void bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param) {
                 
             }
             ESP_LOGI(TAG, "Classic BT Device: MAC:  %s, RSSI: %d, Name:  %s",bda_str, rssi, strlen(name) > 0 ? name_tmp : "Unknown");
-        
+            mac64 = 0;
+            for (uint8_t i = 0; i < 6; i++) {
+
+             //   mac_tmp[i] = bda_str[i];
+               mac64 |= ((uint64_t)param->disc_res.bda[i]) << (8 * (5 - i)); // старший байт — первый
+
+            }
+            
+            printf("MAC as uint64_t: 0x%012llX\n", mac64);
+            if (!mac_parsing(maccmp, mac64))
+            {
+                gpio_set_level(LED_GPIO, 1);
+                vTaskDelay(pdMS_TO_TICKS(5000));
+                gpio_set_level(LED_GPIO, 0);
+            }
+            else {
+                gpio_set_level(LED_GPIO, 0);
+            }
+            mac64 = 0;
         }
-        
-     //   ESP_LOGI(TAG, "  MAC:  %s", bda_str);
-     //   ESP_LOGI(TAG, "  RSSI: %d", rssi);
-    //    ESP_LOGI(TAG, "  Name: %s", strlen(name) > 0 ? name : "Unknown");
     } else if (event == ESP_BT_GAP_DISC_STATE_CHANGED_EVT) {
         if (param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STOPPED) {
          //   ESP_LOGI(TAG, "Discovery finished, restarting in 5s...");
-     //   vTaskDelay(pdMS_TO_TICKS(5000)); // 5 sec pause
+        vTaskDelay(pdMS_TO_TICKS(10)); // 5 sec pause
         esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
         }
     }
@@ -132,12 +158,9 @@ void ble_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
 // ======== app_main() =========
 void app_main(void) {
     // init NVS
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ESP_ERROR_CHECK(nvs_flash_init());
-    }
-
+    init_nvs();
+    led_init();
+    
     // init Bluetooth
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_bt_controller_init(&bt_cfg));
