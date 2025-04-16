@@ -16,7 +16,13 @@
         "compare": "c",
         "cstdint": "c",
         "format": "c",
-        "user_funcs.h": "c"
+        "user_funcs.h": "c",
+        "esp_gap_ble_api.h": "c",
+        "esp_bt.h": "c",
+        "esp_bt_main.h": "c",
+        "stdio.h": "c",
+        "timers.h": "c",
+        "nvs_flash.h": "c"
     },
     "idf.flashType": "UART"
 }
